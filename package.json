@@ -1,0 +1,13 @@
+{
+  "name": "Curse2MultiMC",
+  "version": "0.0.1",
+  "author": "FireWings",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FireWings2259/Curse2MultiMC.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+	},
+  "main": "convert.js"
+}
