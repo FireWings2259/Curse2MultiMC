@@ -10,6 +10,7 @@ const reload = require('require-reload')(require);
 const AdmZip = require('adm-zip');
 const churl = require('valid-url').isUri;
 
+
 var fget = fireLib.wget; //Might use http.get process yet... not sure
 var rurl = fireLib.rurl; //My check URL function
 var getTZDate = fireLib.getTZDate; //My TZ-Date Function
@@ -56,15 +57,21 @@ function buildinstance(czipPath, tz, user){
     let pinfo = reload(wpath + "/manifest.json"); //useing reload just in case things get derpy, if they dont then it will be removed... [TODO] Test That...[/TODO]
     
     //Build the instance.cfg file
-    let incfg = "InstanceType=OneSix"; 
-    incfg += "\nIntendedVersion=" + pinfo.minecraft.version;
-    incfg += "\niconKey=" + nicon;
-    incfg += "\nname=" + pinfo.name;
-    incfg += "\nnotes=" + pinfo.name + " Version: " + pinfo.version + "\\n\\nThis pack was created on " + getTZDate(tz) + "\\nusing FireWings, Curse2MultiMC Converter.";
-    if (user !== undefined){incfg += "\\nThe instance was created by the user: " + user}
-    incfg += "\n";
+    let incfg = "InstanceType=OneSix"; //Set Header Stuff
+    incfg += "\nIntendedVersion=" + pinfo.minecraft.version; //Set MC Version
+    incfg += "\niconKey=" + nicon; //Set Pack Icon
+    incfg += "\nname=" + pinfo.name; //Set Pack Name
+    incfg += "\nnotes=" + pinfo.name + " Version: " + pinfo.version + "\\n\\nThis pack was created on " + getTZDate(tz) + "\\nusing FireWings, Curse2MultiMC Converter."; //Add Info
+    if (user !== undefined){incfg += "\\nThe instance was created by the user: " + user} //If a user was supplied add that
+    incfg += "\n"; //Close with the new line
     
-    fs.appendFileSync(ppath + "/instance.cfg", incfg); 
+    fs.appendFileSync(ppath + "/instance.cfg", incfg); //Write the file to the disk
+    
+}
+
+function curseSearch(url, type){
+    if (type != "icon" || type != "descr"){type = "icon"}
+    
 }
 
 
