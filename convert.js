@@ -9,9 +9,11 @@ const fs = require('fs-extra');
 const reload = require('require-reload')(require);
 const AdmZip = require('adm-zip');
 const churl = require('valid-url').isUri;
+const request = require('sync-request');
+const cheerio = require('cheerio');
 
-
-var fget = fireLib.wget; //Might use http.get process yet... not sure
+var getExt = fireLib.getExt;
+var wget = fireLib.wget; //Might use http.get process yet... not sure
 var rurl = fireLib.rurl; //My check URL function
 var getTZDate = fireLib.getTZDate; //My TZ-Date Function
 var mkdir = fs.ensureDirSync; //Make directory
@@ -61,7 +63,7 @@ function buildinstance(czipPath, tz, user){
     incfg += "\nIntendedVersion=" + pinfo.minecraft.version; //Set MC Version
     incfg += "\niconKey=" + nicon; //Set Pack Icon
     incfg += "\nname=" + pinfo.name; //Set Pack Name
-    incfg += "\nnotes=" + pinfo.name + " Version: " + pinfo.version + "\\n\\nThis pack was created on " + getTZDate(tz) + "\\nusing FireWings, Curse2MultiMC Converter."; //Add Info
+    incfg += "\nnotes=" + pinfo.name + " Version: " + pinfo.version + " Author :" + pinfo.author + "\\n\\nThis pack was created on " + getTZDate(tz) + "\\nusing FireWings, Curse2MultiMC Converter."; //Add Info
     if (user !== undefined){incfg += "\\nThe instance was created by the user: " + user} //If a user was supplied add that
     incfg += "\n"; //Close with the new line
     
@@ -69,9 +71,37 @@ function buildinstance(czipPath, tz, user){
     
 }
 
-function curseSearch(url, type){
-    if (type != "icon" || type != "descr"){type = "icon"}
-    
+function getPackInfo(pinfo, type){ //Curse Web Scrapper
+    if (type != "icon" || type != "desc"){type = "icon"}
+    var $ = cheerio.load(request("GET","https://minecraft.curseforge.com/search?search=" + pinfo.name ).body.toString());
+    let i; //Find the pack
+    for (i = 0; i < $("td.results-owner").length; i++) { //For Each Pack Owner
+     let unt = $("td.results-owner")[i]; //Get the highest Pack Owner tag
+     let username = unt.children[0].next.children[0].data.toString(); //Get the actual owner.
+      if (username == pinfo.author){ //Check to see if they made the pack
+        let atag = unt.prev.prev.children[0].next.children[0].next; //The a link to the project page
+        let pname = atag.children[0].data; //The name of the pack
+        if (pinfo.name == pname){ //Check the the pack is th right one.
+         if (type == "desc"){
+              //Get Desciption
+              let pblurb = unt.prev.prev.children[0].next.next.next.children[0].data.toString(); //results-summery div, is the last next
+              pblurb = pblurb.slice(13, pblurb.length - 9); // cut the weird stuff out
+              //console.log(pblurb);
+              return pblurb;//Send Back the pack description.
+            } else {
+                //let pID = atag.attribs.href.split("projectID=")[1]; //The project ID
+                let link = "https://minecraft.curseforge.com"+atag.attribs.href; //Get the Project Page
+                let $2 =  cheerio.load(request("GET", link).body.toString()); //Get the project Page
+                let img = $2("a.e-avatar64")[0].attribs.href; //Get the full url
+                let icon = getExt(img, true).fileExt; //Get the icons file exstention
+                icon = "icon" + icon; //Set the file exstention
+                
+                //console.log(wget(img, "./", false, icon).fpath);
+                return wget(img, "./", true, icon).fpath; //Get the file and send back the path.
+            }
+        }
+      }
+    }
 }
 
 
