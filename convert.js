@@ -20,6 +20,8 @@ const getTZDate = fireLib.getTZDate; //My TZ-Date Function
 const mkdir = fs.ensureDirSync; //Make directory
 const rm = fs.removeSync; //delete file/folder
 
+module.exports = { buildinstance, getPackInfo };
+
 //fZipC to Promise
 function fZip (path, zip) {
   return new Promise(function (resolve, reject) {
@@ -31,21 +33,24 @@ function fZip (path, zip) {
 }
 
 //Vars
-var curseZipURL = "url"; //The curse zip url
+var curseZipURL = "http://google.com"; //The curse zip url
 //var fireOpt = false; //Do I put in my default configs? //Nope
 
 //First Run
-if (!fs.existsSync("./tmp/")){
+if (!fs.existsSync("./tmp/") || !fs.existsSync("./mmc-packs")){
     console.log("First Run!");
     console.log("Creating Folders/Files");
     fs.ensureDirSync("./tmp");
     fs.ensureDirSync("./mmc-packs");
+    fs.appendFileSync("./mmc-packs/packs.json", JSON.stringify({}, 2, null));
 }
 
 function buildinstance(czipPath, tmp, mmc_packs, tz, user, dvc){
+  return new Promise(function (resolve, reject) {
     //Setup workspace
     if (typeof(tmp) !== String){tmp = "./tmp/"} //Set tmp if not given
     if (typeof(mmc_packs) !== String){mmc_packs = "./mmc-packs"} //Set mmc_packs if not given
+    if (!fs.existsSync(mmc_packs)){fs.ensureDirSync(mmc_packs); fs.ensureFileSync(mmc_packs + "/packs.json");} //Create the Custom folder if it is not created.
     if (dvc !== true){dvc = false}//Sets dvc (Disable Version Check) to false.
     let zipName = czipPath.split('\\').pop().split('/').pop().split(".zip")[0]; //Get the zips file name (without the .zip)
     let wpath = tmp + zipName; //Set the workspace
@@ -160,11 +165,31 @@ function buildinstance(czipPath, tmp, mmc_packs, tz, user, dvc){
     }
     
     let dProm = Promise.all(pfilesp); //Run Them All together
-    dProm.then(makePack(ppath, wpath, zipName, mmc_packs, czipPath), console.error); //Then run clean up
+    dProm.then(makePack(ppath, wpath, zipName, mmc_packs, czipPath), console.error)
+    .then(function(zip, pinfo){
+        let packs = reload(mmc_packs + "/packs.json");
+        if (!(pinfo.pname in packs)){
+            packs[pinfo.name] = {};
+        }
+        packs[pinfo.pname].verson = pinfo.minecraft.version;
+        packs[pinfo.pname].desc = pinfo.desc;
+        packs[pinfo.pname].zip = zipName;
+        packs[pinfo.pname].date = getTZDate(tz);
+        fs.appendFileSync(mmc_packs + "/packs.json", JSON.stringify(packs));
+        
+        resolve(zipName,pinfo,zip);
+    })
+    .catch(function (error) {
+        console.log("Not Me!\n" + error);
+    })
+    ; //Then run clean up
+
+ });
 }
 
 //Get Pack info
-function getPackInfo(pinfo, type, path){ //Curse Web Scrapper
+function getPackInfo(pinfo, type, path, html){ //Curse Web Scrapper
+    if (html != true){html = false} //Set the HTML flag to flase if its not supplied
     if (type != "icon" || type != "desc"){type = "desc"}
     var $ = cheerio.load(request("GET","https://minecraft.curseforge.com/search?search=" + pinfo.name ).body.toString());
     let i; //Find the pack
@@ -190,7 +215,11 @@ function getPackInfo(pinfo, type, path){ //Curse Web Scrapper
                 icon = "icon" + icon; //Set the file exstention
                 
                 //console.log(wget(img, "./", false, icon).fpath);
+                if (!html){
                 return wget(img, path, true, icon); //Get the icon and store the file
+                } else {
+                    return img;
+                }
             }
         }
       }
@@ -199,19 +228,22 @@ function getPackInfo(pinfo, type, path){ //Curse Web Scrapper
 
 //Make Instance and clean up
 function makePack(ppath, wpath, zipName, mmc_packs, czipPath){
+  return new Promise(function (resolve, reject) {
     mkdir(wpath + "/ZIP"); //Make the zip path
     fs.renameSync(ppath, wpath + "/ZIP/MMC-" + zipName); //Move the zip path
     fZip(wpath + "/ZIP/MMC-" + zipName + "/", mmc_packs + "/MMC-" + zipName + ".zip") //Compress the Folder
-    .then(function(){
+    .then(function(zip){
         rm(wpath); //Delete the workspace
         rm(czipPath); //Delete the CurseZip
         console.log("Workspace Gone!");
         console.log("Pack Made!");
+        resolve(zip);
+    }).catch(function(err){
+        reject(err);
     });
     
+  });    
 }
-
-
 
 //Check URL
 if (!churl(curseZipURL)){ //Check URL
@@ -220,6 +252,8 @@ if (!churl(curseZipURL)){ //Check URL
     console.warn("Check the URL and try again.");
     return new Error("Not Valid URL");
 }
+
+
 
 //Download and extract the pack
 
